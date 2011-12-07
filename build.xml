@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<project name="ircnotifier" default="compile" basedir=".">
+	<property name="src" value="./src"/>
+	<property name="build" value="./build"/>
+	<property name="dist" value="./dist"/>
+	<property name="compile.debug" value="true"/>
+	
+	<property name="tc.home" value="/Users/mauve/Build/TeamCity"/>
+	<property name="tc.data.dir" value="/Users/mauve/.BuildServer"/>
+	<property name="tc.lib" value="${tc.home}/webapps/ROOT/WEB-INF/lib"/>
+	<property name="deploy.dir" value="${tc.data.dir}/plugins"/>
+
+	<path id="compile.classpath">
+		<fileset dir="${tc.lib}">
+			<include name="*.jar"/>
+			<exclude name="irclib.jar" />
+		</fileset>
+		<fileset dir="lib">
+		    <include name="irclib.jar"/>
+	    </fileset>
+	</path>
+
+
+	<target name="compile" depends="init">
+		<javac srcdir="${src}" 
+               destdir="${build}"
+               debug="${compile.debug}"
+               source="1.5"
+               target="1.5">
+			<classpath refid="compile.classpath"/>
+		</javac>
+	</target>
+
+
+	<target name="init">
+		<mkdir dir="${build}"/>
+		<mkdir dir="${dist}"/>
+	</target>
+
+	<target name="dist" depends="compile">
+		
+		<copy todir="${build}/buildServerResources">
+		    <fileset dir="buildServerResources"/>
+	    </copy>
+		
+		<jar destfile="${dist}/ircnotifier.jar" basedir="build">
+			<metainf dir="META-INF">
+			   <include name="*"/>
+			</metainf>
+		</jar>
+  
+  	</target>
+	
+	<target name="deploy" depends="dist">
+
+	    <copy file="lib/irclib.jar" todir="${dist}"/>
+	        
+	    <zip destfile="${dist}/ircnotifier.zip" basedir="${dist}" includes="*.jar"/>
+	    
+		<copy file="${dist}/ircnotifier.zip" todir="${deploy.dir}"/>
+	</target>
+
+	<target name="clean" description="Removes previous build">
+		<delete dir="${build}"/>
+		<delete dir="${dist}"/>
+	</target>
+
+</project>
+

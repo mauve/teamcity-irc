@@ -1,12 +1,17 @@
 package se.olenfalk.teamcity.irc;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
 import jetbrains.buildServer.serverSide.BuildServerAdapter;
 import jetbrains.buildServer.serverSide.SBuildServer;
+import jetbrains.buildServer.serverSide.SBuildType;
+import jetbrains.buildServer.serverSide.SProject;
+import jetbrains.buildServer.serverSide.SRunningBuild;
 
 import org.schwering.irc.lib.IRCEventListener;
 import org.schwering.irc.lib.IRCModeParser;
@@ -27,8 +32,10 @@ public class Connection implements IRCEventListener {
     private String currentNickname = "teamcity";
     private Set<String> channels = new HashSet<String>();
     private Timer connectTimer = new Timer();
+    private SBuildServer server;
 
     public Connection(SBuildServer bs, IrcSettings is) {
+        this.server = bs;
         settings = is;
         currentNickname = settings.nickname;
 
@@ -170,8 +177,98 @@ public class Connection implements IRCEventListener {
     public void onPing(String arg0) {
     }
 
+    private void reply(String target, IRCUser user, String message) {
+        if(target.equals(currentNickname)) {
+            // private message, reply in private
+            connection.doPrivmsg(user.getNick(), message);
+        } else {
+            connection.doPrivmsg(target, user.getNick() + ":" + message);
+        }
+    }
+
     @Override
     public void onPrivmsg(String target, IRCUser user, String message) {
+        LOG.info("Got message: " + message);
+
+        String prefix = currentNickname + ":";
+
+        if(message.startsWith(prefix)) {
+            message = message.substring(prefix.length()).trim();
+        } else if(target.equals(currentNickname)) {
+            // private message
+        } else {
+            // ignore
+            return;
+        }
+
+        // TODO handle quoted arguments
+        String[] args = message.split("\\s+");
+
+        List<String> reply = new ArrayList<String>();
+        if("status".equals(message)) {
+            if(!server.getRunningBuilds().isEmpty()) {
+                reply.add("Running builds:");
+                for(SRunningBuild build : server.getRunningBuilds()) {
+                    reply.add(" - " + build.getFullName() + " " + build.getBuildNumber());
+                }
+            } else {
+                reply.add("No running builds");
+            }
+
+            if(!server.getQueue().isQueueEmpty()) {
+                reply.add(server.getQueue().getNumberOfItems() + "queued builds");
+            } else {
+                reply.add("No queued builds");
+            }
+
+        } else if(message.startsWith("build ")) {
+            if(args.length > 2) {
+                String projectName  = args[1];
+                String typeName     = args[2];
+                SProject project = server.getProjectManager().findProjectByName(projectName);
+
+                if(project != null) {
+                    SBuildType buildType = project.findBuildTypeByName(typeName);
+                    if(buildType != null) {
+                        buildType.addToQueue(user.getNick());
+                        reply.add("Build queued");
+                    } else {
+                        reply.add("Unknown build type");
+                    }
+                } else {
+                    reply.add("Unknown project");
+                }
+            } else {
+                reply.add("Missing parameters");
+            }
+        } else if(message.startsWith("show ")) {
+            if(args.length > 1) {
+                String projectName  = args[1];
+                SProject project = server.getProjectManager().findProjectByName(projectName);
+                if(project != null) {
+                    for(SBuildType buildType : project.getBuildTypes()) {
+                        reply.add(buildType.getFullName() + " - " + buildType.getStatus());
+                    }
+                } else {
+                    reply.add("Unknown project");
+                }
+            }
+        } else {
+            reply.add("I understand these commands");
+            reply.add("  build <project name> <build type name>");
+            reply.add("         Start a build");
+            reply.add("  help");
+            reply.add("         Show this message");
+            reply.add("  show <project name>");
+            reply.add("         Show the status of the project");
+            reply.add("  status");
+            reply.add("         Show the running and queued builds");
+        }
+
+        for(String line : reply) {
+            reply(target, user, line);
+        }
+
     }
 
     @Override

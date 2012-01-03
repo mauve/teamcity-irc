@@ -7,6 +7,7 @@ import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.responsibility.TestNameResponsibilityEntry;
 import jetbrains.buildServer.serverSide.BuildServerAdapter;
 import jetbrains.buildServer.serverSide.BuildServerListener;
+import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.serverSide.SBuildType;
 import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.SRunningBuild;
@@ -24,15 +25,17 @@ public class EventListener extends BuildServerAdapter {
     private static final Logger LOG = LoggerFactory.getLogger("IRC_NOTIFIER");
 
     private Connection connection;
+    private SBuildServer server;
 
     public static final String APP_NAME = "TeamCity";
 
     /**
      *
      */
-    public EventListener(@NotNull EventDispatcher<BuildServerListener> dispatcher) {
-        LOG.info("Registering EventListener with " + dispatcher);
+    public EventListener(SBuildServer server, EventDispatcher<BuildServerListener> dispatcher) {
+        this.server = server;
 
+        LOG.info("Registering EventListener with " + dispatcher);
         dispatcher.addListener(this);
     }
 
@@ -46,7 +49,7 @@ public class EventListener extends BuildServerAdapter {
     }
 
     private String formatRunningBuild(SRunningBuild srb, String state) {
-        String msg = "Build " + srb.getFullName() + " " + srb.getBuildNumber() + " " + state;
+        String msg = "Build " + srb.getFullName().replace(" ???", "") + " " + srb.getBuildNumber() + " " + state;
 
         Comment comment = srb.getBuildComment();
         if (comment != null) {
@@ -99,5 +102,8 @@ public class EventListener extends BuildServerAdapter {
     public void buildStarted(SRunningBuild srb) {
         LOG.warn("Build started " + srb.getBuildId());
         doNotifications(formatRunningBuild(srb, "started"), null);
+
+        SProject project = server.getProjectManager().findProjectById(srb.getProjectId());
+        System.out.println(project.getParameters());
     }
 }

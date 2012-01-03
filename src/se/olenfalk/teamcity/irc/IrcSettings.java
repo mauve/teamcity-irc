@@ -8,7 +8,7 @@ import org.jdom.Element;
 import org.jdom.Attribute;
 
 public class IrcSettings {
-    private static final String SERVER = "irc";
+    private static final String IRC = "irc";
     private static final String SERVER_CONN = "connection";
     private static final String PORT = "port";
     private static final String SSL = "ssl";
@@ -35,7 +35,7 @@ public class IrcSettings {
     public static IrcSettings loadFrom(Element element) {
         IrcSettings ircSettings = new IrcSettings();
 
-        Element srvElement = element.getChild(SERVER);
+        Element srvElement = element.getChild(IRC);
         if (srvElement == null){
             System.out.println("Not server");
             return null;

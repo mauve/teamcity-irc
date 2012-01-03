@@ -36,7 +36,7 @@ public class Notifier implements Notificator {
     private static final String IRC_NICKNAME = "ircNotifier.Nickname";
     private static final PropertyKey NICKNAME = new NotificatorPropertyKey(TYPE, IRC_NICKNAME);
 
-    private Connection connection;
+    private IrcConnection connection;
 
     public static final String APP_NAME = "TeamCity";
 
@@ -51,11 +51,11 @@ public class Notifier implements Notificator {
         nr.register(this);
     }
 
-    public Connection getConnection() {
+    public IrcConnection getConnection() {
         return connection;
     }
 
-    public void setConnection(Connection connection) {
+    public void setConnection(IrcConnection connection) {
         LOG.info("Connection provided to IRC notifier");
         this.connection = connection;
     }

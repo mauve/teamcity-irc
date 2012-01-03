@@ -22,9 +22,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-public class Connection implements IRCEventListener {
+public class IrcConnection implements IRCEventListener {
 
-    private static final Logger LOG = LoggerFactory.getLogger("IRC_CONNECTION");
+    private static final Logger LOG = LoggerFactory.getLogger(IrcConnection.class);
 
     private IrcSettings settings;
     private SSLIRCConnection connection;
@@ -34,7 +34,7 @@ public class Connection implements IRCEventListener {
     private Timer connectTimer = new Timer();
     private SBuildServer server;
 
-    public Connection(SBuildServer bs, IrcSettings is) {
+    public IrcConnection(SBuildServer bs, IrcSettings is) {
         this.server = bs;
         settings = is;
         currentNickname = settings.nickname;
@@ -181,14 +181,16 @@ public class Connection implements IRCEventListener {
         if(target.equals(currentNickname)) {
             // private message, reply in private
             connection.doPrivmsg(user.getNick(), message);
+            LOG.info("> " + message + ", " + user.getNick());
         } else {
             connection.doPrivmsg(target, user.getNick() + ":" + message);
+            LOG.info("> " + user.getNick() + ":" + message + ", " + target);
         }
     }
 
     @Override
     public void onPrivmsg(String target, IRCUser user, String message) {
-        LOG.info("Got message: " + message);
+        LOG.info("< " + message + ", " + target + ", " + user.getNick());
 
         String prefix = currentNickname + ":";
 
@@ -209,18 +211,17 @@ public class Connection implements IRCEventListener {
             if(!server.getRunningBuilds().isEmpty()) {
                 reply.add("Running builds:");
                 for(SRunningBuild build : server.getRunningBuilds()) {
-                    reply.add(" - " + build.getFullName() + " " + build.getBuildNumber());
+                    reply.add(" - " + Util.getFullName(build));
                 }
             } else {
                 reply.add("No running builds");
             }
 
             if(!server.getQueue().isQueueEmpty()) {
-                reply.add(server.getQueue().getNumberOfItems() + "queued builds");
+                reply.add(server.getQueue().getNumberOfItems() + " queued builds");
             } else {
                 reply.add("No queued builds");
             }
-
         } else if(message.startsWith("build ")) {
             if(args.length > 2) {
                 String projectName  = args[1];

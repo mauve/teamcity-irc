@@ -4,11 +4,9 @@ import java.util.List;
 import java.util.Set;
 
 import jetbrains.buildServer.messages.Status;
-import jetbrains.buildServer.responsibility.TestNameResponsibilityEntry;
 import jetbrains.buildServer.serverSide.BuildServerAdapter;
 import jetbrains.buildServer.serverSide.BuildServerListener;
 import jetbrains.buildServer.serverSide.SBuildServer;
-import jetbrains.buildServer.serverSide.SBuildType;
 import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.SRunningBuild;
 import jetbrains.buildServer.serverSide.comments.Comment;
@@ -16,15 +14,14 @@ import jetbrains.buildServer.serverSide.problems.BuildProblem;
 import jetbrains.buildServer.users.SUser;
 import jetbrains.buildServer.util.EventDispatcher;
 
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class EventListener extends BuildServerAdapter {
+public class IrcEventListener extends BuildServerAdapter {
 
-    private static final Logger LOG = LoggerFactory.getLogger("IRC_NOTIFIER");
+    private static final Logger LOG = LoggerFactory.getLogger(IrcEventListener.class);
 
-    private Connection connection;
+    private IrcConnection connection;
     private SBuildServer server;
 
     public static final String APP_NAME = "TeamCity";
@@ -32,24 +29,24 @@ public class EventListener extends BuildServerAdapter {
     /**
      *
      */
-    public EventListener(SBuildServer server, EventDispatcher<BuildServerListener> dispatcher) {
+    public IrcEventListener(SBuildServer server, EventDispatcher<BuildServerListener> dispatcher) {
         this.server = server;
 
         LOG.info("Registering EventListener with " + dispatcher);
         dispatcher.addListener(this);
     }
 
-    public Connection getConnection() {
+    public IrcConnection getConnection() {
         return connection;
     }
 
-    public void setConnection(Connection connection) {
+    public void setConnection(IrcConnection connection) {
         LOG.info("Connection provided to IRC notifier");
         this.connection = connection;
     }
 
     private String formatRunningBuild(SRunningBuild srb, String state) {
-        String msg = "Build " + srb.getFullName().replace(" ???", "") + " " + srb.getBuildNumber() + " " + state;
+        String msg = "Build " + Util.getFullName(srb) + " " + state;
 
         Comment comment = srb.getBuildComment();
         if (comment != null) {
@@ -68,18 +65,6 @@ public class EventListener extends BuildServerAdapter {
         return msg;
     }
 
-    private String formatBuildType(SBuildType build, String what) {
-        String msg = "Build type " + build.getFullName() + " " + what;
-        return msg;
-    }
-
-    private String formationTestResponsibilityEntry(TestNameResponsibilityEntry test1,
-            TestNameResponsibilityEntry test2, SProject project, String what) {
-        String msg = "Tests " + test1.getTestName().getAsString() + " and " + test2.getTestName().getAsString()
-                + " in project " + project.getName() + " " + what;
-        return msg;
-    }
-
     private void doNotifications(String message, Set<SUser> users) {
         if(connection == null) {
             return;
@@ -90,7 +75,7 @@ public class EventListener extends BuildServerAdapter {
 
     @Override
     public void buildFinished(SRunningBuild srb) {
-        LOG.warn("Build started " + srb.getBuildId());
+        LOG.info("Build finished " + Util.getFullName(srb));
         if(srb.getBuildStatus() == Status.ERROR || srb.getBuildStatus() == Status.FAILURE) {
             doNotifications(formatRunningBuild(srb, "failed"), null);
         } else {
@@ -100,7 +85,7 @@ public class EventListener extends BuildServerAdapter {
 
     @Override
     public void buildStarted(SRunningBuild srb) {
-        LOG.warn("Build started " + srb.getBuildId());
+        LOG.info("Build started " + Util.getFullName(srb));
         doNotifications(formatRunningBuild(srb, "started"), null);
 
         SProject project = server.getProjectManager().findProjectById(srb.getProjectId());

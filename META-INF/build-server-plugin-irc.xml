@@ -3,9 +3,7 @@
 
 <beans default-autowire="constructor">
 	
-
-	<!-- <bean id="ircNotifier" class="se.olenfalk.teamcity.irc.Notifier" />-->
-	<bean id="ircNotifier" class="se.olenfalk.teamcity.irc.EventListener" />
+	<bean id="ircNotifier" class="se.olenfalk.teamcity.irc.IrcEventListener" />
 	
 	<bean id="ircConnection" class="se.olenfalk.teamcity.irc.IrcPlugin" />
 	 

@@ -13,10 +13,10 @@ public class IrcPlugin implements MainConfigProcessor {
     private IrcSettings ircSettings = null;
 
     private SBuildServer server;
-    private EventListener notifier;
-    private Connection conn;
+    private IrcEventListener notifier;
+    private IrcConnection conn;
 
-    public IrcPlugin(SBuildServer server, EventListener notifier) {
+    public IrcPlugin(SBuildServer server, IrcEventListener notifier) {
         this.server = server;
         this.notifier = notifier;
     }
@@ -29,7 +29,7 @@ public class IrcPlugin implements MainConfigProcessor {
             conn.quit("Reloading Teamcity config");
         }
 
-        conn = new Connection(server, ircSettings);
+        conn = new IrcConnection(server, ircSettings);
         notifier.setConnection(conn);
     }
 

@@ -13,163 +13,196 @@ import org.schwering.irc.lib.IRCModeParser;
 import org.schwering.irc.lib.IRCUser;
 import org.schwering.irc.lib.ssl.SSLDefaultTrustManager;
 import org.schwering.irc.lib.ssl.SSLIRCConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.intellij.openapi.diagnostic.Logger;
 
 public class Connection implements IRCEventListener {
 
-    private static final Logger LOG = Logger.getInstance("IRC_CONNECTION");
-	
+    private static final Logger LOG = LoggerFactory.getLogger("IRC_CONNECTION");
+
     private IrcSettings settings;
-	private SSLIRCConnection connection;
-	private boolean serverShutdown = false;
-	private String currentNickname = "teamcity";
-	private Set<String> channels = new HashSet<String>();
-	private Timer connectTimer = new Timer();
-	
-	Connection(SBuildServer bs, IrcSettings is) {
-		settings = is;
-		currentNickname = settings.nickname;
-		
-		connection = new SSLIRCConnection(settings.hostname,
-										  new int[] { settings.port },
-										  settings.password,
-										  settings.nickname,
-										  settings.username,
-										  settings.realname);
-		connection.addTrustManager(new SSLDefaultTrustManager());
-		connection.addIRCEventListener(this);
-		
-		for (String channel : settings.channels)
-			channels.add(channel);
-		
-		tryConnect ();
-		
-		bs.addListener(new BuildServerAdapter() {
-			@Override
-			public void serverShutdown() {
-				serverShutdown = true;
-				connectTimer.cancel();
-				
-				if (connection.isConnected()) {
-					connection.doQuit("TeamCity Server shutting down...");
-					connection.close();
-				}
-			}
-		});
-	}
+    private SSLIRCConnection connection;
+    private boolean serverShutdown = false;
+    private String currentNickname = "teamcity";
+    private Set<String> channels = new HashSet<String>();
+    private Timer connectTimer = new Timer();
 
-	public void joinChannel(String channel) {
-		synchronized (channels) {
-			if (channels.contains(channel))
-				return;
-			
-			channels.add(channel);
-			if (connection.isConnected())
-				connection.doJoin(channel);
-		}
-	}
-		
-	public void sendPrivMessage(String nickname, String message) {
-		if (!connection.isConnected())
-			return;
-		
-		connection.doPrivmsg(nickname, message);
-	}
-	
-	public void sendPrivMessage(Set<String> nicknames, String message) {
-		if (!connection.isConnected())
-			return;
-		
-		for (String nickname : nicknames) {
-			sendPrivMessage(nickname, message);
-		}
-	}
-	
-	private void tryConnect () {
-		if (serverShutdown)
-			return;
-		
-		try {
-			connection.connect ();
-		} catch (Exception ex) {
-			// TODO add logging
-			
-			connectTimer.schedule(new TimerTask() {
-				@Override
-				public void run() {
-					tryConnect ();
-				}
-			}, 5000); // try again in 5secs
-		}
-	}
-	
-	@Override
-	public void onDisconnected() {
-		if (!serverShutdown) {
-			tryConnect ();
-		}
-	}
+    public Connection(SBuildServer bs, IrcSettings is) {
+        settings = is;
+        currentNickname = settings.nickname;
 
-	@Override
-	public void onError(String msg) {
-		LOG.warn("IRC Error: " + msg);
-	}
+        connection = new SSLIRCConnection(settings.hostname,
+                                            new int[] { settings.port },
+                                            settings.password,
+                                            settings.nickname,
+                                            settings.username,
+                                            settings.realname);
+        connection.addTrustManager(new SSLDefaultTrustManager());
+        connection.addIRCEventListener(this);
 
-	@Override
-	public void onError(int error, String msg) {
-		LOG.warn("IRC Error: " + error + " msg: " + msg);
-		if (error == 433) {
-			currentNickname += "_";
-			connection.doNick(currentNickname);
-		}
-	}
+        for (String channel : settings.channels)
+            channels.add(channel);
 
-	@Override
-	public void onInvite(String chan, IRCUser user, String passiveNick) {
-		joinChannel(chan);
-	}
+        tryConnect();
 
-	@Override
-	public void onJoin(String arg0, IRCUser arg1) {}
+        bs.addListener(new BuildServerAdapter() {
+            @Override
+            public void serverShutdown() {
+                serverShutdown = true;
+                connectTimer.cancel();
 
-	@Override
-	public void onKick(String arg0, IRCUser arg1, String arg2, String arg3) {}
+                if (connection.isConnected()) {
+                    connection.doQuit("TeamCity Server shutting down...");
+                    connection.close();
+                }
+            }
+        });
+    }
 
-	@Override
-	public void onMode(String arg0, IRCUser arg1, IRCModeParser arg2) {}
+    public void joinChannel(String channel) {
+        synchronized (channels) {
+            if (channels.contains(channel))
+                return;
 
-	@Override
-	public void onMode(IRCUser arg0, String arg1, String arg2) {}
+            channels.add(channel);
+            if (connection.isConnected())
+                connection.doJoin(channel);
+        }
+    }
 
-	@Override
-	public void onNick(IRCUser arg0, String arg1) {}
+    public void sendToAllChannels(String message) {
+        for(String channel : channels) {
+            connection.doPrivmsg(channel, message);
+        }
+    }
 
-	@Override
-	public void onNotice(String arg0, IRCUser arg1, String arg2) {}
+    public void sendPrivMessage(String nickname, String message) {
+        if (!connection.isConnected())
+            return;
 
-	@Override
-	public void onPart(String arg0, IRCUser arg1, String arg2) {}
+        connection.doPrivmsg(nickname, message);
+    }
 
-	@Override
-	public void onPing(String arg0) {}
+    public void sendPrivMessage(Set<String> nicknames, String message) {
+        if (!connection.isConnected())
+            return;
 
-	@Override
-	public void onPrivmsg(String target, IRCUser user, String message) {}
+        for (String nickname : nicknames) {
+            sendPrivMessage(nickname, message);
+        }
+    }
 
-	@Override
-	public void onQuit(IRCUser arg0, String arg1) {}
+    private void tryConnect() {
+        if (serverShutdown)
+            return;
 
-	@Override
-	public void onRegistered() {}
+        try {
+            connection.connect();
+            LOG.info("Connected to IRC server");
+        } catch (Exception ex) {
+            // TODO add logging
+            LOG.error("Failed to connect to IRC server", ex);
+            connectTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    tryConnect();
+                }
+            }, 5000); // try again in 5secs
+        }
+    }
 
-	@Override
-	public void onReply(int arg0, String arg1, String arg2) {}
+    @Override
+    public void onDisconnected() {
+        if (!serverShutdown) {
+            tryConnect();
+        }
+    }
 
-	@Override
-	public void onTopic(String arg0, IRCUser arg1, String arg2) {}
+    @Override
+    public void onError(String msg) {
+        LOG.warn("IRC Error: " + msg);
+    }
 
-	@Override
-	public void unknown(String arg0, String arg1, String arg2, String arg3) {}
+    @Override
+    public void onError(int error, String msg) {
+        LOG.warn("IRC Error: " + error + " msg: " + msg);
+        if (error == 433) {
+            currentNickname += "_";
+            connection.doNick(currentNickname);
+        }
+    }
+
+    @Override
+    public void onInvite(String chan, IRCUser user, String passiveNick) {
+        joinChannel(chan);
+    }
+
+    @Override
+    public void onJoin(String arg0, IRCUser arg1) {
+    }
+
+    @Override
+    public void onKick(String arg0, IRCUser arg1, String arg2, String arg3) {
+    }
+
+    @Override
+    public void onMode(String arg0, IRCUser arg1, IRCModeParser arg2) {
+    }
+
+    @Override
+    public void onMode(IRCUser arg0, String arg1, String arg2) {
+    }
+
+    @Override
+    public void onNick(IRCUser arg0, String arg1) {
+    }
+
+    @Override
+    public void onNotice(String arg0, IRCUser arg1, String arg2) {
+    }
+
+    @Override
+    public void onPart(String arg0, IRCUser arg1, String arg2) {
+    }
+
+    @Override
+    public void onPing(String arg0) {
+    }
+
+    @Override
+    public void onPrivmsg(String target, IRCUser user, String message) {
+    }
+
+    @Override
+    public void onQuit(IRCUser arg0, String arg1) {
+    }
+
+    @Override
+    public void onRegistered() {
+
+        LOG.info("Joining channels");
+        for(String channel : channels) {
+            connection.doJoin(channel);
+        }
+    }
+
+    @Override
+    public void onReply(int arg0, String arg1, String arg2) {
+    }
+
+    @Override
+    public void onTopic(String arg0, IRCUser arg1, String arg2) {
+    }
+
+    @Override
+    public void unknown(String arg0, String arg1, String arg2, String arg3) {
+    }
+
+    public void quit(String msg) {
+        if(connection.isConnected()) {
+            connection.doQuit(msg);
+        }
+    }
 
 }

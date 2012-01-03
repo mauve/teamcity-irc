@@ -2,7 +2,11 @@
 <!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
 
 <beans default-autowire="constructor">
-	<bean id="ircConnection" class="se.olenfalk.teamcity.irc.Connection" />
 	
-	<bean id="ircNotifier" class="se.olenfalk.teamcity.irc.Notifier"/>
+
+	<!-- <bean id="ircNotifier" class="se.olenfalk.teamcity.irc.Notifier" />-->
+	<bean id="ircNotifier" class="se.olenfalk.teamcity.irc.EventListener" />
+	
+	<bean id="ircConnection" class="se.olenfalk.teamcity.irc.IrcPlugin" />
+	 
 </beans>

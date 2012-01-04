@@ -37,14 +37,12 @@ public class IrcSettings {
 
         Element srvElement = element.getChild(IRC);
         if (srvElement == null){
-            System.out.println("Not server");
             return null;
         }
 
         // read connection data
         Element srvConnection = srvElement.getChild(SERVER_CONN);
         if (srvConnection == null) {
-            System.out.println("Not connection");
             return null;
         }
 
@@ -68,7 +66,6 @@ public class IrcSettings {
                 ircSettings.useSsl = sslAttr.getBooleanValue();
             }
         } catch (DataConversionException e) {
-            System.out.println("DataConversionException");
             return null;
         }
 
@@ -77,7 +74,6 @@ public class IrcSettings {
         Element userElement = srvElement.getChild(USERNAME);
         Element realElement = srvElement.getChild(REALNAME);
         if (nickElement == null || userElement == null) {
-            System.out.println("Not nickname");
             return null;
 
         }
@@ -96,7 +92,6 @@ public class IrcSettings {
 
         Element channelsElement = srvElement.getChild(CHANNELS);
         if (channelsElement == null) {
-            System.out.println("Not channels");
             return null;
         }
 
@@ -110,7 +105,6 @@ public class IrcSettings {
         }
 
         if (ircSettings.channels.isEmpty()) {
-            System.out.println("Not channel");
             return null;
         }
 
@@ -118,6 +112,26 @@ public class IrcSettings {
     }
 
     public void writeTo(Element element) {
+        Element irc = new Element(IRC);
+        Element connection = new Element(SERVER_CONN);
+        connection.setAttribute(SSL, Boolean.toString(useSsl));
+        connection.setAttribute(PORT, Integer.toString(port));
+        connection.setText(hostname);
+        irc.addContent(connection);
 
+        irc.addContent(new Element(NICKNAME).setText(nickname));
+        irc.addContent(new Element(USERNAME).setText(username));
+        irc.addContent(new Element(REALNAME).setText(realname));
+
+        irc.addContent(new Element(PASSWORD).setText(password));
+
+        Element channels = new Element(CHANNELS);
+        for(String channel : this.channels) {
+            channels.addContent(new Element(CHANNEL).setText(channel));
+        }
+
+        irc.addContent(channels);
+
+        element.addContent(irc);
     }
 }

@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import jetbrains.buildServer.serverSide.BuildServerAdapter;
 import jetbrains.buildServer.serverSide.SBuildServer;
@@ -26,6 +28,8 @@ public class IrcConnection implements IRCEventListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(IrcConnection.class);
 
+    private static final Pattern ARGUMENTS_PATTERN = Pattern.compile("[^\\s\"']+|\"([^\"]*)\"|'([^']*)'");
+
     private IrcSettings settings;
     private SSLIRCConnection connection;
     private boolean serverShutdown = false;
@@ -39,12 +43,7 @@ public class IrcConnection implements IRCEventListener {
         settings = is;
         currentNickname = settings.nickname;
 
-        connection = new SSLIRCConnection(settings.hostname,
-                                            new int[] { settings.port },
-                                            settings.password,
-                                            settings.nickname,
-                                            settings.username,
-                                            settings.realname);
+        connection = createConnection(settings);
         connection.addTrustManager(new SSLDefaultTrustManager());
         connection.addIRCEventListener(this);
 
@@ -65,6 +64,15 @@ public class IrcConnection implements IRCEventListener {
                 }
             }
         });
+    }
+
+    private SSLIRCConnection createConnection(IrcSettings settings) {
+        return new SSLIRCConnection(settings.hostname,
+                new int[] { settings.port },
+                settings.password,
+                settings.nickname,
+                settings.username,
+                settings.realname);
     }
 
     public void joinChannel(String channel) {
@@ -108,8 +116,16 @@ public class IrcConnection implements IRCEventListener {
             connection.connect();
             LOG.info("Connected to IRC server");
         } catch (Exception ex) {
-            // TODO add logging
             LOG.error("Failed to connect to IRC server", ex);
+
+            // recreate the connection
+            try {
+                connection.close();
+            } catch(Exception e) {
+                // ignore
+            }
+            connection = createConnection(settings);
+
             connectTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
@@ -138,6 +154,148 @@ public class IrcConnection implements IRCEventListener {
             currentNickname += "_";
             connection.doNick(currentNickname);
         }
+    }
+
+    private void reply(String target, IRCUser user, String message) {
+        String to;
+        if(target.equals(currentNickname)) {
+            // private message, reply in private
+            to = user.getNick();
+        } else {
+            // in-channel message, reply to user on channel
+            message = user.getNick() + ": " + message;
+            to = target;
+        }
+        connection.doPrivmsg(to, message);
+        LOG.info("> " + message + ", " + to);
+    }
+
+    private List<String> parseCommand(String command) {
+        Matcher matcher = ARGUMENTS_PATTERN.matcher(command);
+
+        List<String> arguments = new ArrayList<String>();
+        while (matcher.find()) {
+            if (matcher.group(1) != null) {
+                // Add double-quoted string without the quotes
+                arguments.add(matcher.group(1));
+            } else if (matcher.group(2) != null) {
+                // Add single-quoted string without the quotes
+                arguments.add(matcher.group(2));
+            } else {
+                // Add unquoted word
+                arguments.add(matcher.group());
+            }
+        }
+        return arguments;
+    }
+
+    @Override
+    public void onPrivmsg(String target, IRCUser user, String message) {
+        LOG.info("< " + message + ", " + target + ", " + user.getNick());
+
+        String prefix = currentNickname + ":";
+
+        if(message.startsWith(prefix)) {
+            message = message.substring(prefix.length()).trim();
+        } else if(target.equals(currentNickname)) {
+            // private message
+        } else {
+            // ignore
+            return;
+        }
+
+        List<String> args = parseCommand(message);
+
+        List<String> reply = new ArrayList<String>();
+        if("status".equals(message)) {
+            if(!server.getRunningBuilds().isEmpty()) {
+                reply.add("Running builds:");
+                for(SRunningBuild build : server.getRunningBuilds()) {
+                    reply.add(" - " + Util.getFullName(build));
+                }
+            } else {
+                reply.add("No running builds");
+            }
+
+            if(!server.getQueue().isQueueEmpty()) {
+                reply.add(server.getQueue().getNumberOfItems() + " queued builds");
+            } else {
+                reply.add("No queued builds");
+            }
+        } else if(message.startsWith("build ")) {
+            if(args.size() > 2) {
+                String projectName  = args.get(1);
+                String typeName     = args.get(2);
+                SProject project = server.getProjectManager().findProjectByName(projectName);
+
+                if(project != null) {
+                    SBuildType buildType = project.findBuildTypeByName(typeName);
+                    if(buildType != null) {
+                        buildType.addToQueue(user.getNick());
+                        reply.add("Build queued");
+                    } else {
+                        reply.add("Unknown build type");
+                    }
+                } else {
+                    reply.add("Unknown project");
+                }
+            } else {
+                reply.add("Missing parameters");
+            }
+        } else if(message.startsWith("show ")) {
+            if(args.size() > 1) {
+                String projectName  = args.get(1);
+                SProject project = server.getProjectManager().findProjectByName(projectName);
+                if(project != null) {
+                    for(SBuildType buildType : project.getBuildTypes()) {
+                        reply.add(buildType.getFullName() + " - " + buildType.getStatus());
+                    }
+                } else {
+                    reply.add("Unknown project");
+                }
+            }
+        } else {
+            if(!"help".equals(message)) {
+                reply.add("What?");
+            }
+            reply.add("I understand these commands");
+            reply.add("    build <project name> <build type name>");
+            reply.add("        Start a build");
+            reply.add("    help");
+            reply.add("        Show this message");
+            reply.add("    show <project name>");
+            reply.add("        Show the status of the project");
+            reply.add("    status");
+            reply.add("        Show the running and queued builds");
+        }
+
+        for(String line : reply) {
+            reply(target, user, line);
+        }
+    }
+
+    @Override
+    public void onQuit(IRCUser arg0, String arg1) {
+    }
+
+    @Override
+    public void onRegistered() {
+        LOG.info("Joining channels");
+        for(String channel : channels) {
+            connection.doJoin(channel);
+        }
+    }
+
+    @Override
+    public void onReply(int arg0, String arg1, String arg2) {
+    }
+
+    @Override
+    public void onTopic(String arg0, IRCUser arg1, String arg2) {
+    }
+
+    @Override
+    public void unknown(String arg0, String arg1, String arg2, String arg3) {
     }
 
     @Override
@@ -175,126 +333,6 @@ public class IrcConnection implements IRCEventListener {
 
     @Override
     public void onPing(String arg0) {
-    }
-
-    private void reply(String target, IRCUser user, String message) {
-        if(target.equals(currentNickname)) {
-            // private message, reply in private
-            connection.doPrivmsg(user.getNick(), message);
-            LOG.info("> " + message + ", " + user.getNick());
-        } else {
-            connection.doPrivmsg(target, user.getNick() + ":" + message);
-            LOG.info("> " + user.getNick() + ":" + message + ", " + target);
-        }
-    }
-
-    @Override
-    public void onPrivmsg(String target, IRCUser user, String message) {
-        LOG.info("< " + message + ", " + target + ", " + user.getNick());
-
-        String prefix = currentNickname + ":";
-
-        if(message.startsWith(prefix)) {
-            message = message.substring(prefix.length()).trim();
-        } else if(target.equals(currentNickname)) {
-            // private message
-        } else {
-            // ignore
-            return;
-        }
-
-        // TODO handle quoted arguments
-        String[] args = message.split("\\s+");
-
-        List<String> reply = new ArrayList<String>();
-        if("status".equals(message)) {
-            if(!server.getRunningBuilds().isEmpty()) {
-                reply.add("Running builds:");
-                for(SRunningBuild build : server.getRunningBuilds()) {
-                    reply.add(" - " + Util.getFullName(build));
-                }
-            } else {
-                reply.add("No running builds");
-            }
-
-            if(!server.getQueue().isQueueEmpty()) {
-                reply.add(server.getQueue().getNumberOfItems() + " queued builds");
-            } else {
-                reply.add("No queued builds");
-            }
-        } else if(message.startsWith("build ")) {
-            if(args.length > 2) {
-                String projectName  = args[1];
-                String typeName     = args[2];
-                SProject project = server.getProjectManager().findProjectByName(projectName);
-
-                if(project != null) {
-                    SBuildType buildType = project.findBuildTypeByName(typeName);
-                    if(buildType != null) {
-                        buildType.addToQueue(user.getNick());
-                        reply.add("Build queued");
-                    } else {
-                        reply.add("Unknown build type");
-                    }
-                } else {
-                    reply.add("Unknown project");
-                }
-            } else {
-                reply.add("Missing parameters");
-            }
-        } else if(message.startsWith("show ")) {
-            if(args.length > 1) {
-                String projectName  = args[1];
-                SProject project = server.getProjectManager().findProjectByName(projectName);
-                if(project != null) {
-                    for(SBuildType buildType : project.getBuildTypes()) {
-                        reply.add(buildType.getFullName() + " - " + buildType.getStatus());
-                    }
-                } else {
-                    reply.add("Unknown project");
-                }
-            }
-        } else {
-            reply.add("I understand these commands");
-            reply.add("  build <project name> <build type name>");
-            reply.add("         Start a build");
-            reply.add("  help");
-            reply.add("         Show this message");
-            reply.add("  show <project name>");
-            reply.add("         Show the status of the project");
-            reply.add("  status");
-            reply.add("         Show the running and queued builds");
-        }
-
-        for(String line : reply) {
-            reply(target, user, line);
-        }
-
-    }
-
-    @Override
-    public void onQuit(IRCUser arg0, String arg1) {
-    }
-
-    @Override
-    public void onRegistered() {
-
-        LOG.info("Joining channels");
-        for(String channel : channels) {
-            connection.doJoin(channel);
-        }
-    }
-
-    @Override
-    public void onReply(int arg0, String arg1, String arg2) {
-    }
-
-    @Override
-    public void onTopic(String arg0, IRCUser arg1, String arg2) {
-    }
-
-    @Override
-    public void unknown(String arg0, String arg1, String arg2, String arg3) {
     }
 
     public void quit(String msg) {

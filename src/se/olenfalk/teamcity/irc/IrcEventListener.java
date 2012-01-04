@@ -1,5 +1,6 @@
 package se.olenfalk.teamcity.irc;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -7,7 +8,6 @@ import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.serverSide.BuildServerAdapter;
 import jetbrains.buildServer.serverSide.BuildServerListener;
 import jetbrains.buildServer.serverSide.SBuildServer;
-import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.SRunningBuild;
 import jetbrains.buildServer.serverSide.comments.Comment;
 import jetbrains.buildServer.serverSide.problems.BuildProblem;
@@ -45,7 +45,9 @@ public class IrcEventListener extends BuildServerAdapter {
         this.connection = connection;
     }
 
-    private String formatRunningBuild(SRunningBuild srb, String state) {
+    private List<String> formatRunningBuild(SRunningBuild srb, String state) {
+        List<String> messages = new ArrayList<String>();
+
         String msg = "Build " + Util.getFullName(srb) + " " + state;
 
         Comment comment = srb.getBuildComment();
@@ -54,23 +56,26 @@ public class IrcEventListener extends BuildServerAdapter {
         }
 
         msg += " (on agent: " + srb.getAgentName() + ")";
+        messages.add(msg);
 
         List<BuildProblem> problems = srb.getBuildProblems();
         if (!problems.isEmpty()) {
-            msg += "\nBuild Problems:\n";
+            messages.add("Build Problems:");
             for (BuildProblem buildProblem : problems) {
-                msg += "    - " + buildProblem.getStringRepresentation();
+                messages.add("    - " + buildProblem.getStringRepresentation());
             }
         }
-        return msg;
+        return messages;
     }
 
-    private void doNotifications(String message, Set<SUser> users) {
+    private void doNotifications(List<String> messages, Set<SUser> users) {
         if(connection == null) {
             return;
         }
 
-        connection.sendToAllChannels(message);
+        for(String message : messages) {
+            connection.sendToAllChannels(message);
+        }
     }
 
     @Override
@@ -87,8 +92,5 @@ public class IrcEventListener extends BuildServerAdapter {
     public void buildStarted(SRunningBuild srb) {
         LOG.info("Build started " + Util.getFullName(srb));
         doNotifications(formatRunningBuild(srb, "started"), null);
-
-        SProject project = server.getProjectManager().findProjectById(srb.getProjectId());
-        System.out.println(project.getParameters());
     }
 }

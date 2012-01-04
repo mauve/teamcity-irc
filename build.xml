@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<project name="ircnotifier" default="compile" basedir=".">
+<project name="ircnotifier" default="dist" basedir=".">
 	<!-- Change these as needed -->
 	<property name="tc.home" value="/opt/TeamCity" />
 	<property name="tc.data.dir" value="${user.home}/.BuildServer" />

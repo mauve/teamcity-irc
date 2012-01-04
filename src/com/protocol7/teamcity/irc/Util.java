@@ -1,4 +1,4 @@
-package se.olenfalk.teamcity.irc;
+package com.protocol7.teamcity.irc;
 
 import jetbrains.buildServer.serverSide.SRunningBuild;
 

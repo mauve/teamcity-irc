@@ -1,4 +1,4 @@
-package se.olenfalk.teamcity.irc;
+package com.protocol7.teamcity.irc;
 
 import java.util.ArrayList;
 import java.util.HashSet;

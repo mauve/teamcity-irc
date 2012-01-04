@@ -22,7 +22,6 @@ import jetbrains.buildServer.users.NotificatorPropertyKey;
 import jetbrains.buildServer.users.PropertyKey;
 import jetbrains.buildServer.users.SUser;
 
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +42,7 @@ public class Notifier implements Notificator {
     /**
      *
      */
-    public Notifier(@NotNull NotificatorRegistry nr) {
+    public Notifier(NotificatorRegistry nr) {
         LOG.info("Registering Notifier...");
         props = new ArrayList<UserPropertyInfo>();
         //props.add(new UserPropertyInfo(IRC_NICKNAME, "IRC Nickname"));

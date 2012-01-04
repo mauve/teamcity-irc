@@ -1,40 +1,44 @@
 <?xml version="1.0"?>
 <project name="ircnotifier" default="compile" basedir=".">
+	<!-- Change these as needed -->
+	<property name="tc.home" value="/opt/TeamCity" />
+	<property name="tc.data.dir" value="${user.home}/.BuildServer" />
+
 	<property name="src" value="./src" />
 	<property name="build" value="./build" />
 	<property name="dist" value="./dist" />
 	<property name="compile.debug" value="true" />
 
-	<property name="tc.home" value="/Users/niklas/dev/teamcity/TeamCity" />
-	<property name="tc.data.dir" value="/Users/niklas/.BuildServer" />
+	<property name="tc.dev" value="${tc.home}/devPackage" />
 	<property name="tc.lib" value="${tc.home}/webapps/ROOT/WEB-INF/lib" />
 	<property name="deploy.dir" value="${tc.data.dir}/plugins" />
 
 	<path id="compile.classpath">
+		<fileset dir="${tc.dev}">
+			<include name="server-api.jar" />
+			<include name="common-api.jar" />
+		</fileset>
 		<fileset dir="${tc.lib}">
-			<include name="*.jar" />
-			<exclude name="irclib.jar" />
+			<include name="slf4j-api-1.5.11.jar" />
+			<include name="jdom.jar" />
 		</fileset>
 		<fileset dir="lib">
 			<include name="irclib.jar" />
 		</fileset>
 	</path>
 
-
+   <target name="init">
+        <mkdir dir="${build}" />
+        <mkdir dir="${dist}" />
+    </target>
+	
 	<target name="compile" depends="init">
 		<javac srcdir="${src}" destdir="${build}" debug="${compile.debug}" source="1.5" target="1.5">
 			<classpath refid="compile.classpath" />
 		</javac>
 	</target>
 
-
-	<target name="init">
-		<mkdir dir="${build}" />
-		<mkdir dir="${dist}" />
-	</target>
-
 	<target name="dist" depends="compile">
-
 		<copy todir="${build}/buildServerResources">
 			<fileset dir="buildServerResources" />
 		</copy>
@@ -45,15 +49,13 @@
 			</metainf>
 		</jar>
 
-	</target>
-
-	<target name="deploy" depends="dist">
-
 		<copy file="teamcity-plugin.xml" todir="${dist}" />
 		<copy file="lib/irclib.jar" todir="${dist}" />
 
 		<zip destfile="${dist}/ircnotifier.zip" basedir="${dist}" includes="*.jar *.xml" />
+	</target>
 
+	<target name="deploy" depends="dist">
 		<copy file="${dist}/ircnotifier.zip" todir="${deploy.dir}" />
 	</target>
 

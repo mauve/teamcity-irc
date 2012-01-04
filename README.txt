@@ -7,6 +7,7 @@ Install the plugin and stick the following in main-config.xml:
     <password>sekrit</password>
     <channels>
       <channel>#builds</channel>
+      <channel projects="fo.* bar">#foo</channel>
     </channels>
   </irc>
 

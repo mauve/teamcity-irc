@@ -1,13 +1,77 @@
 package com.protocol7.teamcity.irc;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
+import jetbrains.buildServer.serverSide.SProject;
+
+import org.jdom.Attribute;
 import org.jdom.DataConversionException;
 import org.jdom.Element;
-import org.jdom.Attribute;
 
 public class IrcSettings {
+
+    public static class Channel {
+
+        private String name;
+        private String projects;
+        private List<Pattern> patterns;
+
+        public Channel(String name, String projects) {
+            this.name = name;
+            this.projects = projects;
+
+            this.patterns = new ArrayList<Pattern>();
+            if(projects != null) {
+                for(String project : Arrays.asList(projects.split("\\s+"))) {
+                    this.patterns.add(Pattern.compile(project, Pattern.CASE_INSENSITIVE));
+                }
+            }
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getProjects() {
+            return projects;
+        }
+
+        public boolean interestedIn(SProject project) {
+            if(patterns.isEmpty()) {
+                // no patterns, interested in everything
+                return true;
+            }
+
+            for(Pattern pattern : patterns) {
+                if(pattern.matcher(project.getName()).matches()) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null) return false;
+            if (getClass() != obj.getClass()) return false;
+
+            Channel other = (Channel) obj;
+            return other.name.equals(name);
+        }
+
+
+    }
+
     private static final String IRC = "irc";
     private static final String SERVER_CONN = "connection";
     private static final String PORT = "port";
@@ -30,7 +94,7 @@ public class IrcSettings {
     public String username;
     public String password;
     public String realname;
-    public List<String> channels = new ArrayList<String>();
+    public List<Channel> channels = new ArrayList<Channel>();
 
     public static IrcSettings loadFrom(Element element) {
         IrcSettings ircSettings = new IrcSettings();
@@ -99,9 +163,11 @@ public class IrcSettings {
         List<Element> channelsElements = (List<Element>) channelsElement.getChildren(CHANNEL);
         for (Element channelElement : channelsElements) {
             String channel = channelElement.getTextTrim();
-            if (channel.isEmpty())
+            if (channel.isEmpty()) {
                 continue;
-            ircSettings.channels.add(channel);
+            }
+            String projects = channelElement.getAttributeValue("projects");
+            ircSettings.channels.add(new Channel(channel, projects));
         }
 
         if (ircSettings.channels.isEmpty()) {
@@ -126,8 +192,12 @@ public class IrcSettings {
         irc.addContent(new Element(PASSWORD).setText(password));
 
         Element channels = new Element(CHANNELS);
-        for(String channel : this.channels) {
-            channels.addContent(new Element(CHANNEL).setText(channel));
+        for(Channel channel : this.channels) {
+            Element channelElm = new Element(CHANNEL);
+            channelElm.setText(channel.getName());
+            if(channel.getProjects() != null) channelElm.setAttribute("projects", channel.getProjects());
+
+            channels.addContent(channelElm);
         }
 
         irc.addContent(channels);

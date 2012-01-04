@@ -8,6 +8,7 @@ import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.serverSide.BuildServerAdapter;
 import jetbrains.buildServer.serverSide.BuildServerListener;
 import jetbrains.buildServer.serverSide.SBuildServer;
+import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.SRunningBuild;
 import jetbrains.buildServer.serverSide.comments.Comment;
 import jetbrains.buildServer.serverSide.problems.BuildProblem;
@@ -24,11 +25,6 @@ public class IrcEventListener extends BuildServerAdapter {
     private IrcConnection connection;
     private SBuildServer server;
 
-    public static final String APP_NAME = "TeamCity";
-
-    /**
-     *
-     */
     public IrcEventListener(SBuildServer server, EventDispatcher<BuildServerListener> dispatcher) {
         this.server = server;
 
@@ -68,13 +64,13 @@ public class IrcEventListener extends BuildServerAdapter {
         return messages;
     }
 
-    private void doNotifications(List<String> messages, Set<SUser> users) {
+    private void doNotifications(List<String> messages, SProject project) {
         if(connection == null) {
             return;
         }
 
         for(String message : messages) {
-            connection.sendToAllChannels(message);
+            connection.sendToAllChannels(message, project);
         }
     }
 
@@ -82,15 +78,19 @@ public class IrcEventListener extends BuildServerAdapter {
     public void buildFinished(SRunningBuild srb) {
         LOG.info("Build finished " + Util.getFullName(srb));
         if(srb.getBuildStatus() == Status.ERROR || srb.getBuildStatus() == Status.FAILURE) {
-            doNotifications(formatRunningBuild(srb, "failed"), null);
+            doNotifications(formatRunningBuild(srb, "failed"), getProject(srb));
         } else {
-            doNotifications(formatRunningBuild(srb, "succeeded"), null);
+            doNotifications(formatRunningBuild(srb, "succeeded"), getProject(srb));
         }
     }
 
     @Override
     public void buildStarted(SRunningBuild srb) {
         LOG.info("Build started " + Util.getFullName(srb));
-        doNotifications(formatRunningBuild(srb, "started"), null);
+        //doNotifications(formatRunningBuild(srb, "started"), getProject(srb));
+    }
+
+    private SProject getProject(SRunningBuild srb) {
+        return server.getProjectManager().findProjectById(srb.getProjectId());
     }
 }

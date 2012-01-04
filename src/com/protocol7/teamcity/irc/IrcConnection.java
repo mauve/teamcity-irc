@@ -23,6 +23,8 @@ import org.schwering.irc.lib.ssl.SSLIRCConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.protocol7.teamcity.irc.IrcSettings.Channel;
+
 
 public class IrcConnection implements IRCEventListener {
 
@@ -34,7 +36,7 @@ public class IrcConnection implements IRCEventListener {
     private SSLIRCConnection connection;
     private boolean serverShutdown = false;
     private String currentNickname = "teamcity";
-    private Set<String> channels = new HashSet<String>();
+    private Set<Channel> channels = new HashSet<Channel>();
     private Timer connectTimer = new Timer();
     private SBuildServer server;
 
@@ -47,7 +49,7 @@ public class IrcConnection implements IRCEventListener {
         connection.addTrustManager(new SSLDefaultTrustManager());
         connection.addIRCEventListener(this);
 
-        for (String channel : settings.channels)
+        for (Channel channel : settings.channels)
             channels.add(channel);
 
         tryConnect();
@@ -75,20 +77,11 @@ public class IrcConnection implements IRCEventListener {
                 settings.realname);
     }
 
-    public void joinChannel(String channel) {
-        synchronized (channels) {
-            if (channels.contains(channel))
-                return;
-
-            channels.add(channel);
-            if (connection.isConnected())
-                connection.doJoin(channel);
-        }
-    }
-
-    public void sendToAllChannels(String message) {
-        for(String channel : channels) {
-            connection.doPrivmsg(channel, message);
+    public void sendToAllChannels(String message, SProject project) {
+        for(Channel channel : channels) {
+            if(channel.interestedIn(project)) {
+                connection.doPrivmsg(channel.getName(), message);
+            }
         }
     }
 
@@ -281,8 +274,8 @@ public class IrcConnection implements IRCEventListener {
     @Override
     public void onRegistered() {
         LOG.info("Joining channels");
-        for(String channel : channels) {
-            connection.doJoin(channel);
+        for(Channel channel : channels) {
+            connection.doJoin(channel.getName());
         }
     }
 
@@ -300,7 +293,7 @@ public class IrcConnection implements IRCEventListener {
 
     @Override
     public void onInvite(String chan, IRCUser user, String passiveNick) {
-        joinChannel(chan);
+        connection.doJoin(chan);
     }
 
     @Override

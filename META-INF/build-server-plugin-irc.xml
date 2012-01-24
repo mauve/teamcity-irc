@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
-
 <beans default-autowire="constructor">
-	<bean id="ircConnection" class="se.olenfalk.teamcity.irc.Connection" />
 	
-	<bean id="ircNotifier" class="se.olenfalk.teamcity.irc.Notifier"/>
+	<bean class="com.protocol7.teamcity.irc.IrcEventListener" />
+	
+	<bean class="com.protocol7.teamcity.irc.IrcPlugin" />
+	 
 </beans>

@@ -1,15 +1,19 @@
 package com.protocol7.teamcity.irc;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import jetbrains.buildServer.serverSide.BuildPromotionEx;
 import jetbrains.buildServer.serverSide.BuildServerAdapter;
+import jetbrains.buildServer.serverSide.BuildTypeEx;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.serverSide.SBuildType;
 import jetbrains.buildServer.serverSide.SProject;
@@ -219,12 +223,24 @@ public class IrcConnection implements IRCEventListener {
             if(args.size() > 2) {
                 String projectName  = args.get(1);
                 String typeName     = args.get(2);
+                String branch = null;
+                if(args.size() > 3) branch = args.get(3);
+
                 SProject project = server.getProjectManager().findProjectByName(projectName);
 
                 if(project != null) {
                     SBuildType buildType = project.findBuildTypeByName(typeName);
                     if(buildType != null) {
-                        buildType.addToQueue(user.getNick());
+
+                        if(branch == null) {
+                            buildType.addToQueue(user.getNick());
+                        } else {
+                            BuildPromotionEx promo = ((BuildTypeEx)buildType).createBuildPromotion();
+                            Map<String, String> parameters = new HashMap<String, String>();
+                            parameters.put("PROJECT_BRANCH", branch);
+                            promo.setCustomParameters(parameters);
+                            promo.addToQueue(user.getNick());
+                        }
                         reply.add("Build queued");
                     } else {
                         reply.add("Unknown build type");
@@ -252,7 +268,7 @@ public class IrcConnection implements IRCEventListener {
                 reply.add("What?");
             }
             reply.add("I understand these commands");
-            reply.add("    build <project name> <build type name>");
+            reply.add("    build <project name> <build type name> [<branch>]");
             reply.add("        Start a build");
             reply.add("    help");
             reply.add("        Show this message");

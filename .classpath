@@ -8,5 +8,6 @@
 	<classpathentry kind="var" path="TEAMCITY/devPackage/server-api.jar"/>
 	<classpathentry kind="var" path="TEAMCITY/webapps/ROOT/WEB-INF/lib/jdom.jar"/>
 	<classpathentry kind="var" path="TEAMCITY/webapps/ROOT/WEB-INF/lib/slf4j-api-1.5.11.jar"/>
+	<classpathentry kind="var" path="TEAMCITY/webapps/ROOT/WEB-INF/lib/server.jar"/>
 	<classpathentry kind="output" path="build"/>
 </classpath>

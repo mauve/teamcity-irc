@@ -1,68 +1,67 @@
 <?xml version="1.0"?>
-<project name="ircnotifier" default="compile" basedir=".">
-	<property name="src" value="./src"/>
-	<property name="build" value="./build"/>
-	<property name="dist" value="./dist"/>
-	<property name="compile.debug" value="true"/>
-	
-	<property name="tc.home" value="/Users/mauve/Build/TeamCity"/>
-	<property name="tc.data.dir" value="/Users/mauve/.BuildServer"/>
-	<property name="tc.lib" value="${tc.home}/webapps/ROOT/WEB-INF/lib"/>
-	<property name="deploy.dir" value="${tc.data.dir}/plugins"/>
+<project name="ircnotifier" default="dist" basedir=".">
+	<!-- Change these as needed -->
+	<property name="tc.home" value="/opt/TeamCity" />
+	<property name="tc.data.dir" value="${user.home}/.BuildServer" />
+
+	<property name="src" value="./src" />
+	<property name="build" value="./build" />
+	<property name="dist" value="./dist" />
+	<property name="compile.debug" value="true" />
+
+	<property name="tc.dev" value="${tc.home}/devPackage" />
+	<property name="tc.lib" value="${tc.home}/webapps/ROOT/WEB-INF/lib" />
+	<property name="deploy.dir" value="${tc.data.dir}/plugins" />
 
 	<path id="compile.classpath">
+		<fileset dir="${tc.dev}">
+			<include name="server-api.jar" />
+			<include name="common-api.jar" />
+		</fileset>
 		<fileset dir="${tc.lib}">
-			<include name="*.jar"/>
-			<exclude name="irclib.jar" />
+			<include name="slf4j-api-1.5.11.jar" />
+			<include name="jdom.jar" />
 		</fileset>
 		<fileset dir="lib">
-		    <include name="irclib.jar"/>
-	    </fileset>
+			<include name="irclib.jar" />
+		</fileset>
 	</path>
 
-
+   <target name="init">
+        <mkdir dir="${build}" />
+        <mkdir dir="${dist}" />
+    </target>
+	
 	<target name="compile" depends="init">
-		<javac srcdir="${src}" 
-               destdir="${build}"
-               debug="${compile.debug}"
-               source="1.5"
-               target="1.5">
-			<classpath refid="compile.classpath"/>
+		<javac srcdir="${src}" destdir="${build}" debug="${compile.debug}" source="1.5" target="1.5">
+			<classpath refid="compile.classpath" />
 		</javac>
 	</target>
 
-
-	<target name="init">
-		<mkdir dir="${build}"/>
-		<mkdir dir="${dist}"/>
-	</target>
-
 	<target name="dist" depends="compile">
-		
 		<copy todir="${build}/buildServerResources">
-		    <fileset dir="buildServerResources"/>
-	    </copy>
-		
+			<fileset dir="buildServerResources" />
+		</copy>
+
 		<jar destfile="${dist}/ircnotifier.jar" basedir="build">
 			<metainf dir="META-INF">
-			   <include name="*"/>
+				<include name="*" />
 			</metainf>
 		</jar>
-  
-  	</target>
-	
-	<target name="deploy" depends="dist">
 
-	    <copy file="lib/irclib.jar" todir="${dist}"/>
-	        
-	    <zip destfile="${dist}/ircnotifier.zip" basedir="${dist}" includes="*.jar"/>
-	    
-		<copy file="${dist}/ircnotifier.zip" todir="${deploy.dir}"/>
+		<copy file="teamcity-plugin.xml" todir="${dist}" />
+		<copy file="lib/irclib.jar" todir="${dist}" />
+
+		<zip destfile="${dist}/ircnotifier.zip" basedir="${dist}" includes="*.jar *.xml" />
+	</target>
+
+	<target name="deploy" depends="dist">
+		<copy file="${dist}/ircnotifier.zip" todir="${deploy.dir}" />
 	</target>
 
 	<target name="clean" description="Removes previous build">
-		<delete dir="${build}"/>
-		<delete dir="${dist}"/>
+		<delete dir="${build}" />
+		<delete dir="${dist}" />
 	</target>
 
 </project>

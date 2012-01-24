@@ -1,4 +1,4 @@
-package com.protocol7.teamcity.irc;
+package se.olenfalk.teamcity.irc;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,7 +27,8 @@ import org.schwering.irc.lib.ssl.SSLIRCConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.protocol7.teamcity.irc.IrcSettings.Channel;
+import se.olenfalk.teamcity.irc.IrcSettings.Channel;
+
 
 
 public class IrcConnection implements IRCEventListener {

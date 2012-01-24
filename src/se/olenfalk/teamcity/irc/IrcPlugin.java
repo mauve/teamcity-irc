@@ -1,4 +1,4 @@
-package com.protocol7.teamcity.irc;
+package se.olenfalk.teamcity.irc;
 
 import org.jdom.Element;
 

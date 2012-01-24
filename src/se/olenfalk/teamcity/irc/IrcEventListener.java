@@ -1,4 +1,4 @@
-package com.protocol7.teamcity.irc;
+package se.olenfalk.teamcity.irc;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,6 +58,7 @@ public class IrcEventListener extends BuildServerAdapter {
         if (!problems.isEmpty()) {
             messages.add("Build Problems:");
             for (BuildProblem buildProblem : problems) {
+                System.out.println(buildProblem.getStringRepresentation());
                 messages.add("    - " + buildProblem.getStringRepresentation());
             }
         }

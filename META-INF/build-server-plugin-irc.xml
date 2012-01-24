@@ -2,8 +2,8 @@
 <!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
 <beans default-autowire="constructor">
 	
-	<bean class="com.protocol7.teamcity.irc.IrcEventListener" />
+	<bean class="se.olenfalk.teamcity.irc.IrcEventListener" />
 	
-	<bean class="com.protocol7.teamcity.irc.IrcPlugin" />
+	<bean class="se.olenfalk.teamcity.irc.IrcPlugin" />
 	 
 </beans>
